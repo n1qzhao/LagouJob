@@ -10,6 +10,8 @@ import requests
 from util.file_reader import parse_job_xml
 
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), os.pardir)))
+#  gives you an absolute path for the parent directory of the directory your file is in
+
 from spider.jobdetail_spider import crawl_job_detail
 import pandas as pd
 from util import log
@@ -21,18 +23,18 @@ except:
     import urllib as parse
 
     sys.reload()
-    sys.setdefaultencoding('utf-8')
+    sys.setdefaultencoding('utf-8')  # what are these doing here?
 
 
-def crawl_jobs(positionName):
+def crawl_jobs(city, positionName):
     """crawl the job info from lagou H5 web pages"""
     JOB_DATA = list()
-    max_page_number = get_max_pageNo(positionName)
+    max_page_number = get_max_pageNo(city, positionName)
     log.info("%s, 共有 %s 页记录, 共约 %s 记录", positionName, max_page_number, max_page_number * 15)
     cookies = get_cookies()
 
     for i in range(1, max_page_number + 1):
-        request_url = 'https://m.lagou.com/search.json?city=%E5%85%A8%E5%9B%BD&positionName=' + parse.quote(
+        request_url = 'https://m.lagou.com/search.json?city=' + parse.quote(city) + '&positionName=' + parse.quote(
             positionName) + '&pageNo=' + str(i) + '&pageSize=15'
         headers = {
             'Accept': 'application/json',
@@ -49,7 +51,7 @@ def crawl_jobs(positionName):
             for each_item in response.json()['content']['data']['page']['result']:
                 JOB_DATA.append([each_item['positionId'], each_item['positionName'], each_item['city'],
                                  each_item['createTime'], each_item['salary'],
-                                 each_item['companyId'], each_item['companyName'], each_item['companyFullName']])
+                                 each_item['companyId'], each_item['companyName'], each_item['companyFullName'], 'https://m.lagou.com/jobs/' + str(each_item['positionId']) + '.html'])
                 # try:
                     # crawl_job_detail(each_item['positionId'], positionName)
                 # except:
@@ -77,11 +79,11 @@ def get_cookies():
     return response.cookies
 
 
-def get_max_pageNo(positionName):
+def get_max_pageNo(city, positionName):
     """return the max page number of a specific job"""
     cookies = get_cookies()
-    request_url = 'https://m.lagou.com/search.json?city=%E5%85%A8%E5%9B%BD&positionName=' + parse.quote(
-        positionName) + '&pageNo=1&pageSize=15'
+    request_url = 'https://m.lagou.com/search.json?city=' + parse.quote(city) + '&positionName=' + parse.quote(
+            positionName) + '&pageNo=1&pageSize=15'
     headers = {
         'Accept': 'application/json',
         'Accept-Encoding': 'gzip, deflate, sdch',
@@ -110,8 +112,9 @@ def get_max_pageNo(positionName):
 
 if __name__ == '__main__':
     craw_job_list = parse_job_xml('../config/job.xml')
+    city = input('城市名称>>')
     for _ in craw_job_list:
-        joblist = crawl_jobs(_)
+        joblist = crawl_jobs(city, _)
         col = [
             u'职位编码',
             u'职位名称',
@@ -120,7 +123,8 @@ if __name__ == '__main__':
             u'薪资待遇',
             u'公司编码',
             u'公司名称',
-            u'公司全称']
+            u'公司全称',
+            u'职位链接']
         df = pd.DataFrame(joblist, columns=col)
-        path = "./data/"
+        path = "/Users/shellva/Desktop/LagouJob/data/"
         df.to_excel(path + _ + ".xlsx", sheet_name=_, index=False)
